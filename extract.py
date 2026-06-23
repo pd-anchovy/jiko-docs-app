@@ -1,4 +1,5 @@
 import json
+
 import schema
 
 
@@ -26,7 +27,7 @@ def parse_response(text, doc_type):
     fields = schema.DOC_TYPES[doc_type]
     blank = {f: "" for f in fields}
 
-    cleaned = text.strip()
+    cleaned = (text or "").strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.strip("`")
         if cleaned.lower().startswith("json"):
@@ -46,15 +47,16 @@ def parse_response(text, doc_type):
 
 def extract_fields(image_bytes, mime_type, doc_type, api_key,
                    model_name="gemini-2.0-flash"):
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(model_name)
-    response = model.generate_content(
-        [
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model=model_name,
+        contents=[
             build_prompt(doc_type),
-            {"mime_type": mime_type, "data": image_bytes},
+            types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
         ],
-        generation_config={"response_mime_type": "application/json"},
+        config=types.GenerateContentConfig(response_mime_type="application/json"),
     )
     return parse_response(response.text, doc_type)
