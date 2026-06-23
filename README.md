@@ -64,7 +64,8 @@ streamlit run app.py
 
 ## 注意・補足
 - **プライバシー:** Gemini は AI Studio **無料枠**を使用。無料枠では入力データ(事故書類＝個人情報を含む)が**Geminiの改善・学習に利用される可能性がある**。完全無料を最優先して採用。重視する場合は **Vertex AI(会社のGoogle Cloud)** に切り替えると学習に使われず、コストもほぼ無料。
-- **モデル名:** 既定は `gemini-2.0-flash`。無料枠で使えない/変更したい場合は `extract.py` の `model_name` を AI Studio で利用可能なビジョン対応モデルに変更。
+- **モデル名:** 既定は `gemini-2.5-flash`。無料枠で使えない/変更したい場合は `extract.py` の `model_name` を AI Studio で利用可能なビジョン対応モデルに変更。
+  - ※ 当初は `gemini-2.0-flash` だったが、2026-06-24 時点で無料枠の割り当てが `limit:0` になり 429(RESOURCE_EXHAUSTED)で読み取りが失敗。無料枠で使える `gemini-2.5-flash` に変更して解消。
 - **テスト:** `pytest -q` で純粋ロジック(項目定義・突合・JSON解析・シート書き込み)を検証。
 
 ## ファイル構成
