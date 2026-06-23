@@ -46,7 +46,7 @@ def parse_response(text, doc_type):
 
 
 def extract_fields(image_bytes, mime_type, doc_type, api_key,
-                   model_name="gemini-2.0-flash"):
+                   model_name="gemini-2.5-flash"):
     from google import genai
     from google.genai import types
 
