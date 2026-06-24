@@ -25,6 +25,21 @@ def now_str():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def err_detail(e):
+    """例外チェーンを辿って中身のあるメッセージを返す。
+
+    gspread は本当のAPIエラーを中身が空の PermissionError に包み直すため、
+    str(e) が空のときは __cause__ 側の実メッセージを拾う。
+    """
+    cur = e
+    while cur is not None:
+        msg = str(cur).strip()
+        if msg:
+            return f"{type(cur).__name__}: {msg}"
+        cur = cur.__cause__ or cur.__context__
+    return f"{type(e).__name__}（詳細メッセージなし）"
+
+
 def main():
     st.title("📄 事故書類整理")
 
@@ -74,19 +89,23 @@ def main():
                 dict(st.secrets["gcp_service_account"]),
             )
         except Exception as e:  # noqa: BLE001
-            st.error(f"スプレッドシート接続に失敗: {e}")
+            st.error(f"スプレッドシート接続に失敗: {err_detail(e)}")
             return
 
         now = now_str()
         appended = updated = 0
-        for rec in edited:
-            action = sheets.save_record(
-                ws, st.session_state["result_doc_type"], dict(rec), now
-            )
-            if action == "appended":
-                appended += 1
-            else:
-                updated += 1
+        try:
+            for rec in edited:
+                action = sheets.save_record(
+                    ws, st.session_state["result_doc_type"], dict(rec), now
+                )
+                if action == "appended":
+                    appended += 1
+                else:
+                    updated += 1
+        except Exception as e:  # noqa: BLE001
+            st.error(f"スプレッドシートへの書き込みに失敗: {err_detail(e)}")
+            return
         st.success(f"送信完了: 新規 {appended} 件 / 更新 {updated} 件")
         del st.session_state["results"]
 
