@@ -81,3 +81,21 @@ def test_notice_not_duplicated():
     rec = {"車両番号": "A1", "発生日": "2026-06-01", "補償の種類": "対物", "運転者名": "山田"}
     new_rows, _ = matcher.apply_record(rows, "reception", rec)
     assert new_rows[0]["通知種類"] == "受付連絡"
+
+
+def test_normalize_plate_katakana_and_zenkaku():
+    assert matcher.normalize_plate("横浜４８２レ２７２８") == "横浜482れ2728"
+    assert matcher.normalize_plate("練馬 481 リ 5317") == "練馬 481 り 5317"
+    assert matcher.normalize_plate("") == ""
+
+
+def test_find_row_index_ignores_kana_style_and_spaces():
+    rows = [_blank_row(車両番号="横浜 482レ 2728", 発生日="2026-05-04")]
+    assert matcher.find_row_index(rows, "横浜482れ2728", "2026-05-04") == 0
+
+
+def test_apply_record_stores_normalized_plate():
+    pay = {"車両番号": "横浜４８２レ２７２８", "発生日": "2026-05-04", "支払完了": "はい"}
+    new_rows, action = matcher.apply_record([], "payment", pay)
+    assert action == "appended"
+    assert new_rows[0]["車両番号"] == "横浜482れ2728"

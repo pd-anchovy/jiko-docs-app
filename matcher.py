@@ -1,10 +1,32 @@
 import copy
+import unicodedata
+
 import schema
 
 
+def normalize_plate(value):
+    """車両番号を正規化する。
+
+    全角英数字・スペースを半角化(NFKC)し、カタカナはひらがなに変換する
+    (例: 横浜４８２レ２７２８ → 横浜482れ2728)。
+    """
+    s = unicodedata.normalize("NFKC", str(value or "")).strip()
+    return "".join(
+        chr(ord(c) - 0x60) if "ァ" <= c <= "ヶ" else c for c in s
+    )
+
+
+def _plate_key(value):
+    """突合用キー。正規化に加えスペースの有無も無視する。"""
+    return normalize_plate(value).replace(" ", "")
+
+
 def find_row_index(rows, vehicle, date):
+    key = _plate_key(vehicle)
+    date = str(date or "").strip()
     for i, row in enumerate(rows):
-        if row.get("車両番号", "") == vehicle and row.get("発生日", "") == date:
+        if (_plate_key(row.get("車両番号", "")) == key
+                and str(row.get("発生日", "")).strip() == date):
             return i
     return None
 
@@ -25,8 +47,8 @@ def _merge_notice(current, label):
 
 def apply_record(rows, doc_type, record):
     rows = copy.deepcopy(rows)
-    vehicle = record.get("車両番号", "")
-    date = record.get("発生日", "")
+    vehicle = normalize_plate(record.get("車両番号", ""))
+    date = str(record.get("発生日", "") or "").strip()
     idx = find_row_index(rows, vehicle, date)
 
     if idx is None:
