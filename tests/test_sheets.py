@@ -1,8 +1,6 @@
 import schema
 import sheets
 
-NOW = "2026-06-22 10:00:00"
-
 
 class FakeWorksheet:
     """gspreadの必要メソッドだけ模倣する。1行目=ヘッダ。"""
@@ -27,7 +25,7 @@ class FakeWorksheet:
 
 
 def test_load_rows_normalizes():
-    ws = FakeWorksheet(data_rows=[["A1", "2026-06-01", "対物", "山田", "", "", ""]])
+    ws = FakeWorksheet(data_rows=[["A1", "2026-06-01", "対物", "山田", "", ""]])
     rows = sheets.load_rows(ws)
     assert rows[0]["車両番号"] == "A1"
     assert rows[0]["支払完了"] == ""
@@ -36,22 +34,23 @@ def test_load_rows_normalizes():
 def test_save_record_appends_new_reception():
     ws = FakeWorksheet()
     rec = {"車両番号": "A1", "発生日": "2026-06-01", "補償の種類": "対物", "運転者名": "山田"}
-    action = sheets.save_record(ws, "reception", rec, NOW)
+    action = sheets.save_record(ws, "reception", rec)
     assert action == "appended"
     assert len(ws.appended) == 1
     row = ws.appended[0]
-    assert row[0] == "A1"            # 車両番号
-    assert row[4] == NOW             # 受付登録日時
+    assert row[0] == "A1"        # 車両番号
+    assert row[5] == "受付連絡"  # 通知種類
 
 
 def test_save_record_updates_matching_row():
-    ws = FakeWorksheet(data_rows=[["A1", "2026-06-01", "対物", "山田", NOW, "", ""]])
-    pay = {"車両番号": "A1", "発生日": "2026-06-01", "支払完了": "はい"}
-    action = sheets.save_record(ws, "payment", pay, "2026-06-22 11:00:00")
+    ws = FakeWorksheet(data_rows=[["A1", "2026-06-01", "対物", "山田", "", "受付連絡"]])
+    pay = {"車両番号": "A1", "発生日": "2026-06-01", "運転者名": "", "支払完了": "はい"}
+    action = sheets.save_record(ws, "payment", pay)
     assert action == "updated"
     assert len(ws.updates) == 1
     range_name, values = ws.updates[0]
-    # データ1行目 → シート2行目
-    assert range_name.startswith("A2")
-    assert values[0][5] == "はい"                 # 支払完了
-    assert values[0][6] == "2026-06-22 11:00:00"  # 支払登録日時
+    # データ1行目 → シート2行目、6列 → F
+    assert range_name == "A2:F2"
+    assert values[0][4] == "はい"                    # 支払完了
+    assert values[0][5] == "受付連絡・支払完了通知"  # 通知種類
+    assert values[0][3] == "山田"                    # 運転者名は保持

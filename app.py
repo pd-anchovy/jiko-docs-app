@@ -1,5 +1,3 @@
-from datetime import datetime
-
 import streamlit as st
 
 import schema
@@ -19,10 +17,6 @@ def check_password():
     elif pw:
         st.error("パスワードが違います")
     return False
-
-
-def now_str():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def err_detail(e):
@@ -46,9 +40,7 @@ def main():
     if not check_password():
         return
 
-    doc_label = st.radio("書類の種類", ["①受付", "②支払"], horizontal=True)
-    doc_type = "reception" if doc_label == "①受付" else "payment"
-    fields = schema.DOC_TYPES[doc_type]
+    st.caption("受付連絡・支払完了はがきを混ぜてアップロードできます。種類は自動判定されます。")
 
     files = st.file_uploader(
         "書類画像をドラッグ&ドロップ(複数可)",
@@ -61,22 +53,26 @@ def main():
 
     if st.button("読み取り", type="primary"):
         results = []
-        for f in files:
-            data = f.getvalue()
-            rec = extract.extract_fields(
-                data, f.type, doc_type, st.secrets["gemini_api_key"]
-            )
-            results.append(rec)
+        try:
+            for f in files:
+                data = f.getvalue()
+                rec = extract.extract_fields(
+                    data, f.type, st.secrets["gemini_api_key"]
+                )
+                results.append(rec)
+        except Exception as e:  # noqa: BLE001
+            st.error(f"画像の読み取りに失敗: {err_detail(e)}")
+            return
         st.session_state["results"] = results
-        st.session_state["result_doc_type"] = doc_type
 
     if "results" not in st.session_state:
         return
 
     st.subheader("読み取り結果(確認・修正)")
+    st.caption("「書類種別」は 受付 / 支払 のどちらかです。誤判定はここで修正してください。")
     edited = st.data_editor(
         st.session_state["results"],
-        column_order=fields,
+        column_order=schema.EXTRACT_FIELDS,
         num_rows="fixed",
         use_container_width=True,
         key="editor",
@@ -92,13 +88,16 @@ def main():
             st.error(f"スプレッドシート接続に失敗: {err_detail(e)}")
             return
 
-        now = now_str()
         appended = updated = 0
+        skipped = []
         try:
-            for rec in edited:
-                action = sheets.save_record(
-                    ws, st.session_state["result_doc_type"], dict(rec), now
-                )
+            for i, rec in enumerate(edited, start=1):
+                label = str(rec.get("書類種別", "")).strip()
+                doc_type = schema.DOC_LABELS.get(label)
+                if doc_type is None:
+                    skipped.append(i)
+                    continue
+                action = sheets.save_record(ws, doc_type, dict(rec))
                 if action == "appended":
                     appended += 1
                 else:
@@ -106,8 +105,15 @@ def main():
         except Exception as e:  # noqa: BLE001
             st.error(f"スプレッドシートへの書き込みに失敗: {err_detail(e)}")
             return
+
         st.success(f"送信完了: 新規 {appended} 件 / 更新 {updated} 件")
-        del st.session_state["results"]
+        if skipped:
+            st.warning(
+                f"書類種別が不明のため送信しなかった行: {', '.join(map(str, skipped))} 行目。"
+                "「受付」か「支払」を入力して再送信してください(送信済みの行は重複しません)。"
+            )
+        else:
+            del st.session_state["results"]
 
 
 if __name__ == "__main__":

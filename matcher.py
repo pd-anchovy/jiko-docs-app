@@ -13,7 +13,17 @@ def _blank_row():
     return {c: "" for c in schema.COLUMNS}
 
 
-def apply_record(rows, doc_type, record, now):
+def _merge_notice(current, label):
+    """既存の通知種類にラベルを追加(重複なし・固定順で「・」区切り)。"""
+    parts = [p for p in (current or "").split("・") if p]
+    if label not in parts:
+        parts.append(label)
+    order = list(schema.NOTICE_LABELS.values())
+    parts.sort(key=lambda p: order.index(p) if p in order else len(order))
+    return "・".join(parts)
+
+
+def apply_record(rows, doc_type, record):
     rows = copy.deepcopy(rows)
     vehicle = record.get("車両番号", "")
     date = record.get("発生日", "")
@@ -31,14 +41,19 @@ def apply_record(rows, doc_type, record, now):
         row["発生日"] = date
         row["補償の種類"] = record.get("補償の種類", "")
         row["運転者名"] = record.get("運転者名", "")
-        row["受付登録日時"] = now
     elif doc_type == "payment":
         row["車両番号"] = vehicle
         row["発生日"] = date
         row["支払完了"] = record.get("支払完了", "")
-        row["支払登録日時"] = now
+        # 完了はがきの被保険者名。空なら受付側の運転者名を保持
+        name = record.get("運転者名", "")
+        if name:
+            row["運転者名"] = name
     else:
         raise ValueError(f"unknown doc_type: {doc_type}")
+
+    row["通知種類"] = _merge_notice(row.get("通知種類", ""),
+                                    schema.NOTICE_LABELS[doc_type])
 
     if idx is None:
         rows.append(row)

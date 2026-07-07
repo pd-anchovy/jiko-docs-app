@@ -1,12 +1,21 @@
 COLUMNS = [
     "車両番号", "発生日", "補償の種類", "運転者名",
-    "受付登録日時", "支払完了", "支払登録日時",
+    "支払完了", "通知種類",
 ]
 
-RECEPTION_FIELDS = ["車両番号", "発生日", "補償の種類", "運転者名"]
-PAYMENT_FIELDS = ["車両番号", "発生日", "支払完了"]
+# 画像から一括抽出する項目(書類種別はGeminiが自動判定)
+EXTRACT_FIELDS = [
+    "書類種別", "車両番号", "発生日", "補償の種類", "運転者名", "支払完了",
+]
 
-DOC_TYPES = {
-    "reception": RECEPTION_FIELDS,
-    "payment": PAYMENT_FIELDS,
+# 書類種別の表示値 → 内部doc_type
+DOC_LABELS = {
+    "受付": "reception",
+    "支払": "payment",
+}
+
+# 通知種類の表示ラベル(併記時はこの順で「・」区切り)
+NOTICE_LABELS = {
+    "reception": "受付連絡",
+    "payment": "支払完了通知",
 }
